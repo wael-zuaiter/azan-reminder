@@ -11,7 +11,7 @@ import { PrayerTimes, CalculationMethod, Coordinates } from 'adhan';
 // Constants
 const PRAYERS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 const MINUTE_OPTIONS = [5, 10, 15, 20, 25, 30];
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4008;
 
 // Initialize database and express
 const db = knex(knexConfig.development);
