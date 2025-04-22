@@ -832,6 +832,61 @@ app.get('/health', async (_, res) => {
   }
 });
 
+// API endpoints
+app.get('/api/users', async (_, res) => {
+  try {
+    const users = await db('users').select('*');
+    res.json({
+      success: true,
+      data: users
+    });
+  } catch (error) {
+    logger.error('Error fetching users:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch users'
+    });
+  }
+});
+
+app.get('/api/reminders', async (_, res) => {
+  try {
+    const reminders = await db('reminders')
+      .join('users', 'reminders.user_id', 'users.id')
+      .select(
+        'reminders.*',
+        'users.telegram_id',
+        'users.city'
+      );
+    res.json({
+      success: true,
+      data: reminders
+    });
+  } catch (error) {
+    logger.error('Error fetching reminders:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch reminders'
+    });
+  }
+});
+
+app.get('/api/sessions', async (_, res) => {
+  try {
+    const sessions = await db('sessions').select('*');
+    res.json({
+      success: true,
+      data: sessions
+    });
+  } catch (error) {
+    logger.error('Error fetching sessions:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch sessions'
+    });
+  }
+});
+
 // Start server and bot
 app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));
 bot.launch().then(() => logger.info('Telegram bot started'));
