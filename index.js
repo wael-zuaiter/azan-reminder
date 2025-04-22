@@ -141,7 +141,9 @@ const sessionConfig = {
   store: {
     async get(key) {
       try {
-        const session = await db('sessions').where('telegram_id', key).first();
+        // Convert key to number if it's a string
+        const telegramId = typeof key === 'string' ? parseInt(key.split(':')[0]) : key;
+        const session = await db('sessions').where('telegram_id', telegramId).first();
         return session ? session.data : null;
       } catch (error) {
         logger.error('Error getting session:', error);
@@ -150,9 +152,11 @@ const sessionConfig = {
     },
     async set(key, value) {
       try {
+        // Convert key to number if it's a string
+        const telegramId = typeof key === 'string' ? parseInt(key.split(':')[0]) : key;
         await db('sessions')
           .insert({
-            telegram_id: key,
+            telegram_id: telegramId,
             data: value,
             updated_at: new Date()
           })
@@ -164,7 +168,9 @@ const sessionConfig = {
     },
     async delete(key) {
       try {
-        await db('sessions').where('telegram_id', key).del();
+        // Convert key to number if it's a string
+        const telegramId = typeof key === 'string' ? parseInt(key.split(':')[0]) : key;
+        await db('sessions').where('telegram_id', telegramId).del();
       } catch (error) {
         logger.error('Error deleting session:', error);
       }
