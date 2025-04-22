@@ -8,6 +8,8 @@ module.exports = {
     max_memory_restart: '1G',
     env: {
       NODE_ENV: 'production',
+      BOT_TOKEN: process.env.BOT_TOKEN,
+      TIMEZONEDB_API_KEY: process.env.TIMEZONEDB_API_KEY,
       PORT: 4008
     },
     env_production: {
