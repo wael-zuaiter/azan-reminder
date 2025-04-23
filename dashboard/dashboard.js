@@ -6,24 +6,12 @@ function formatDate(dateString) {
 
 // Function to fetch data with auth
 async function fetchWithAuth(url) {
-    const username = localStorage.getItem('dashboard_username');
-    const password = localStorage.getItem('dashboard_password');
-    
-    if (!username || !password) {
-        throw new Error('Authentication credentials not found');
-    }
-    
-    const response = await fetch(url, {
-        headers: {
-            'Authorization': 'Basic ' + btoa(username + ':' + password)
-        }
-    });
+    const response = await fetch(url);
     
     if (response.status === 401) {
-        // Clear stored credentials and redirect to login
-        localStorage.removeItem('dashboard_username');
-        localStorage.removeItem('dashboard_password');
-        alert('Invalid credentials. Please login again.');
+        // Redirect to login if unauthorized
+        alert('Session expired. Please login again.');
+        await fetch('/api/logout', { method: 'POST' });
         window.location.reload();
         throw new Error('Authentication failed');
     }

@@ -10,6 +10,7 @@ import { PrayerTimes, CalculationMethod, Coordinates } from 'adhan';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import cookieParser from 'cookie-parser';
 
 // Get the directory name equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -24,6 +25,7 @@ const PORT = process.env.PORT || 4008;
 const db = knex(knexConfig.development);
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 
 // Initialize bot
 const bot = new Telegraf(process.env.BOT_TOKEN);
@@ -856,6 +858,11 @@ cron.schedule('* * * * *', async () => {
 
 // Basic auth middleware
 const basicAuth = (req, res, next) => {
+    // Check for auth cookie first
+    if (req.cookies.dashboard_auth === 'true') {
+        return next();
+    }
+
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Basic ')) {
         return res.status(401).json({
@@ -868,12 +875,28 @@ const basicAuth = (req, res, next) => {
     const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
     const [username, password] = credentials.split(':');
 
-    if (username !== 'admin' || password !== process.env.DASHBOARD_PASSWORD) {
+    if (!process.env.DASHBOARD_USERNAME || !process.env.DASHBOARD_PASSWORD) {
+        console.error('DASHBOARD_USERNAME and/or DASHBOARD_PASSWORD environment variables are not set');
+        return res.status(500).json({
+            success: false,
+            error: 'Server configuration error'
+        });
+    }
+
+    if (username !== process.env.DASHBOARD_USERNAME || password !== process.env.DASHBOARD_PASSWORD) {
         return res.status(401).json({
             success: false,
             error: 'Invalid credentials'
         });
     }
+
+    // Set auth cookie
+    res.cookie('dashboard_auth', 'true', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    });
 
     return next();
 };
@@ -890,21 +913,38 @@ app.get('/dashboard', (req, res) => {
     });
 });
 
-// Serve dashboard.js with authentication
-app.get('/dashboard.js', basicAuth, (req, res) => {
-    const filePath = path.join(__dirname, 'dashboard', 'dashboard.js');
-    res.setHeader('Content-Type', 'application/javascript');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+// Login endpoint
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
     
-    fs.readFile(filePath, 'utf8', (err, data) => {
-        if (err) {
-            console.error('Error reading dashboard.js:', err);
-            return res.status(500).send('Error loading dashboard.js');
-        }
-        res.send(data);
-    });
+    if (!process.env.DASHBOARD_USERNAME || !process.env.DASHBOARD_PASSWORD) {
+        console.error('DASHBOARD_USERNAME and/or DASHBOARD_PASSWORD environment variables are not set');
+        return res.status(500).json({
+            success: false,
+            error: 'Server configuration error'
+        });
+    }
+    
+    if (username === process.env.DASHBOARD_USERNAME && password === process.env.DASHBOARD_PASSWORD) {
+        res.cookie('dashboard_auth', 'true', {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'strict',
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        });
+        res.json({ success: true });
+    } else {
+        res.status(401).json({
+            success: false,
+            error: 'Invalid credentials'
+        });
+    }
+});
+
+// Logout endpoint
+app.post('/api/logout', (req, res) => {
+    res.clearCookie('dashboard_auth');
+    res.json({ success: true });
 });
 
 // Health check endpoint (public)
