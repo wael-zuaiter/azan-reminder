@@ -73,10 +73,10 @@ const basicAuth = (req, res, next) => {
 };
 
 // Serve static files from dashboard directory with authentication
-app.use('/dashboard', basicAuth, express.static(path.join(__dirname, 'dashboard')));
+app.use('/', express.static(path.join(__dirname, 'dashboard')));
 
 // Serve dashboard HTML with authentication
-app.get('/dashboard', basicAuth, (req, res) => {
+app.get('/', basicAuth, (req, res) => {
     // Read and send the dashboard HTML file
     fs.readFile(path.join(__dirname, 'dashboard', 'index.html'), 'utf8', (err, data) => {
         if (err) {
