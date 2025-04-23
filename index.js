@@ -27,6 +27,9 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
+// Serve static files from dashboard directory with authentication
+app.use('/dashboard', basicAuth, express.static(path.join(__dirname, 'dashboard')));
+
 // Initialize bot
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
@@ -902,7 +905,7 @@ const basicAuth = (req, res, next) => {
 };
 
 // Serve dashboard files
-app.get('/dashboard', (req, res) => {
+app.get('/dashboard', basicAuth, (req, res) => {
     // Read and send the dashboard HTML file
     fs.readFile(path.join(__dirname, 'dashboard', 'index.html'), 'utf8', (err, data) => {
         if (err) {

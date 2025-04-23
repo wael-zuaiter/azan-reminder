@@ -155,7 +155,7 @@
             if (success) {
                 // Load dashboard script
                 const script = document.createElement('script');
-                script.src = '/dashboard.js';
+                script.src = 'dashboard.js';
                 script.onerror = function() {
                     alert('Failed to load dashboard. Please try again.');
                     fetch('/api/logout', { method: 'POST' })
