@@ -7,9 +7,11 @@ import logger from './logger.js';
 import cron from 'node-cron';
 import axios from 'axios';
 import { PrayerTimes, CalculationMethod, Coordinates } from 'adhan';
+import fs from 'fs';
+import path from 'path';
 
 // Constants
-const PRAYERS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+const PRAYERS = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 const MINUTE_OPTIONS = [5, 10, 15, 20, 25, 30];
 const PORT = process.env.PORT || 4008;
 
@@ -51,6 +53,7 @@ const messages = {
     prayerTimes: '🕌 Prayer Times for {city}:\n\n',
     prayers: {
       fajr: '🌅 FAJR',
+      sunrise: '🌞 SUNRISE',
       dhuhr: '☀️ DHUHR',
       asr: '🌤️ ASR',
       maghrib: '🌅 MAGHRIB',
@@ -86,6 +89,7 @@ const messages = {
     prayerTimes: '🕌 مواقيت الصلاة في {city}:\n\n',
     prayers: {
       fajr: '🌅 الفجر',
+      sunrise: '🌞 الشروق',
       dhuhr: '☀️ الظهر',
       asr: '🌤️ العصر',
       maghrib: '🌅 المغرب',
@@ -128,6 +132,7 @@ const convertToArabicNumerals = (number) => {
 const getPrayerEmoji = (prayer) => {
   const emojis = {
     fajr: '🌅',
+    sunrise: '🌞',
     dhuhr: '☀️',
     asr: '🌤️',
     maghrib: '🌅',
@@ -483,7 +488,9 @@ bot.action('confirm_location', async (ctx) => {
         city: pendingLocation.city, 
         latitude: pendingLocation.latitude, 
         longitude: pendingLocation.longitude,
-        timezone: pendingLocation.timezone
+        timezone: pendingLocation.timezone,
+        full_name: ctx.from.first_name + (ctx.from.last_name ? ' ' + ctx.from.last_name : ''),
+        username: ctx.from.username || null
       })
       .onConflict('telegram_id')
       .merge();
@@ -748,6 +755,7 @@ cron.schedule('* * * * *', async () => {
     const prayerNames = {
       ar: {
         fajr: '🌅 الفجر',
+        sunrise: '🌞 الشروق',
         dhuhr: '☀️ الظهر',
         asr: '🌤️ العصر',
         maghrib: '🌅 المغرب',
@@ -755,6 +763,7 @@ cron.schedule('* * * * *', async () => {
       },
       en: {
         fajr: '🌅 FAJR',
+        sunrise: '🌞 SUNRISE',
         dhuhr: '☀️ DHUHR',
         asr: '🌤️ ASR',
         maghrib: '🌅 MAGHRIB',
@@ -821,70 +830,82 @@ cron.schedule('* * * * *', async () => {
   }
 });
 
-// Health check endpoint
+// Serve dashboard files
+app.get('/dashboard', (req, res) => {
+    // Read and send the dashboard HTML file
+    fs.readFile(path.join(__dirname, 'dashboard', 'index.html'), 'utf8', (err, data) => {
+        if (err) {
+            console.error('Error reading dashboard file:', err);
+            return res.status(500).send('Error loading dashboard');
+        }
+        res.send(data);
+    });
+});
+
+// Health check endpoint (public)
 app.get('/health', async (_, res) => {
-  try {
-    await db.raw('SELECT 1');
-    res.send('OK');
-  } catch (error) {
-    logger.error('Health check failed:', error);
-    res.status(500).send('DB Error');
-  }
+    try {
+        await db.raw('SELECT 1');
+        res.send('OK');
+    } catch (error) {
+        logger.error('Health check failed:', error);
+        res.status(500).send('DB Error');
+    }
 });
 
-// API endpoints
-app.get('/api/users', async (_, res) => {
-  try {
-    const users = await db('users').select('*');
-    res.json({
-      success: true,
-      data: users
-    });
-  } catch (error) {
-    logger.error('Error fetching users:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch users'
-    });
-  }
+// Protected API endpoints
+app.get('/api/users', basicAuth, async (_, res) => {
+    try {
+        const users = await db('users').select('*');
+        res.json({
+            success: true,
+            data: users
+        });
+    } catch (error) {
+        logger.error('Error fetching users:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch users'
+        });
+    }
 });
 
-app.get('/api/reminders', async (_, res) => {
-  try {
-    const reminders = await db('reminders')
-      .join('users', 'reminders.user_id', 'users.id')
-      .select(
-        'reminders.*',
-        'users.telegram_id',
-        'users.city'
-      );
-    res.json({
-      success: true,
-      data: reminders
-    });
-  } catch (error) {
-    logger.error('Error fetching reminders:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch reminders'
-    });
-  }
+app.get('/api/reminders', basicAuth, async (_, res) => {
+    try {
+        const reminders = await db('reminders')
+            .join('users', 'reminders.user_id', 'users.id')
+            .select(
+                'reminders.*',
+                'users.telegram_id',
+                'users.city'
+            );
+        res.json({
+            success: true,
+            data: reminders
+        });
+    } catch (error) {
+        logger.error('Error fetching reminders:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch reminders'
+        });
+    }
 });
 
-app.get('/api/sessions', async (_, res) => {
-  try {
-    const sessions = await db('sessions').select('*');
-    res.json({
-      success: true,
-      data: sessions
-    });
-  } catch (error) {
-    logger.error('Error fetching sessions:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch sessions'
-    });
-  }
+app.get('/api/sessions', basicAuth, async (_, res) => {
+    try {
+        const sessions = await db('sessions').select('*');
+        res.json({
+            success: true,
+            data: sessions
+        });
+    } catch (error) {
+        logger.error('Error fetching sessions:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch sessions'
+        });
+    }
 });
 
 // Start server and bot
