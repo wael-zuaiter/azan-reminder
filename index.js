@@ -250,9 +250,28 @@ const formatRemindersList = (reminders, lang) => {
 const errorHandler = async (ctx, error, action = 'unknown') => {
   logger.error(`Error in ${action}:`, error);
   const lang = ctx.session?.lang || 'en';
+  
+  // Check if this is an expired callback query
+  if (error.description?.includes('query is too old') || 
+      error.description?.includes('query ID is invalid')) {
+      // Silently ignore expired callback queries
+      if (ctx.callbackQuery) {
+          try {
+              await ctx.answerCbQuery();
+          } catch (e) {
+              // Ignore any errors in answering the callback
+          }
+      }
+      return;
+  }
+  
   await ctx.reply('An error occurred. Please try again.');
   if (ctx.callbackQuery) {
-    await ctx.answerCbQuery();
+      try {
+          await ctx.answerCbQuery();
+      } catch (e) {
+          // Ignore any errors in answering the callback
+      }
   }
 };
 
