@@ -27,8 +27,65 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
+// Basic auth middleware
+const basicAuth = (req, res, next) => {
+    // Check for auth cookie first
+    if (req.cookies.dashboard_auth === 'true') {
+        return next();
+    }
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Basic ')) {
+        return res.status(401).json({
+            success: false,
+            error: 'Authentication required'
+        });
+    }
+
+    const base64Credentials = authHeader.split(' ')[1];
+    const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
+    const [username, password] = credentials.split(':');
+
+    if (!process.env.DASHBOARD_USERNAME || !process.env.DASHBOARD_PASSWORD) {
+        console.error('DASHBOARD_USERNAME and/or DASHBOARD_PASSWORD environment variables are not set');
+        return res.status(500).json({
+            success: false,
+            error: 'Server configuration error'
+        });
+    }
+
+    if (username !== process.env.DASHBOARD_USERNAME || password !== process.env.DASHBOARD_PASSWORD) {
+        return res.status(401).json({
+            success: false,
+            error: 'Invalid credentials'
+        });
+    }
+
+    // Set auth cookie
+    res.cookie('dashboard_auth', 'true', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    });
+
+    return next();
+};
+
 // Serve static files from dashboard directory with authentication
 app.use('/dashboard', basicAuth, express.static(path.join(__dirname, 'dashboard')));
+
+// Serve dashboard HTML with authentication
+app.get('/dashboard', basicAuth, (req, res) => {
+    // Read and send the dashboard HTML file
+    fs.readFile(path.join(__dirname, 'dashboard', 'index.html'), 'utf8', (err, data) => {
+        if (err) {
+            console.error('Error reading dashboard file:', err);
+            return res.status(500).send('Error loading dashboard');
+        }
+        res.send(data);
+    });
+});
 
 // Initialize bot
 const bot = new Telegraf(process.env.BOT_TOKEN);
@@ -857,63 +914,6 @@ cron.schedule('* * * * *', async () => {
       }
     }
   }
-});
-
-// Basic auth middleware
-const basicAuth = (req, res, next) => {
-    // Check for auth cookie first
-    if (req.cookies.dashboard_auth === 'true') {
-        return next();
-    }
-
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Basic ')) {
-        return res.status(401).json({
-            success: false,
-            error: 'Authentication required'
-        });
-    }
-
-    const base64Credentials = authHeader.split(' ')[1];
-    const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
-    const [username, password] = credentials.split(':');
-
-    if (!process.env.DASHBOARD_USERNAME || !process.env.DASHBOARD_PASSWORD) {
-        console.error('DASHBOARD_USERNAME and/or DASHBOARD_PASSWORD environment variables are not set');
-        return res.status(500).json({
-            success: false,
-            error: 'Server configuration error'
-        });
-    }
-
-    if (username !== process.env.DASHBOARD_USERNAME || password !== process.env.DASHBOARD_PASSWORD) {
-        return res.status(401).json({
-            success: false,
-            error: 'Invalid credentials'
-        });
-    }
-
-    // Set auth cookie
-    res.cookie('dashboard_auth', 'true', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'strict',
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    });
-
-    return next();
-};
-
-// Serve dashboard files
-app.get('/dashboard', basicAuth, (req, res) => {
-    // Read and send the dashboard HTML file
-    fs.readFile(path.join(__dirname, 'dashboard', 'index.html'), 'utf8', (err, data) => {
-        if (err) {
-            console.error('Error reading dashboard file:', err);
-            return res.status(500).send('Error loading dashboard');
-        }
-        res.send(data);
-    });
 });
 
 // Login endpoint
