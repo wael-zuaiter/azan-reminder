@@ -830,6 +830,30 @@ cron.schedule('* * * * *', async () => {
   }
 });
 
+// Basic auth middleware
+const basicAuth = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Basic ')) {
+        return res.status(401).json({
+            success: false,
+            error: 'Authentication required'
+        });
+    }
+
+    const base64Credentials = authHeader.split(' ')[1];
+    const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
+    const [username, password] = credentials.split(':');
+
+    if (username !== 'admin' || password !== process.env.DASHBOARD_PASSWORD) {
+        return res.status(401).json({
+            success: false,
+            error: 'Invalid credentials'
+        });
+    }
+
+    return next();
+};
+
 // Serve dashboard files
 app.get('/dashboard', (req, res) => {
     // Read and send the dashboard HTML file
