@@ -124,7 +124,20 @@
                 window.location.href = '/';
             }
         }
+
+        // Add error handling for script loading
+        function loadDashboardScript() {
+            const script = document.createElement('script');
+            script.src = '/dashboard.js';
+            script.onerror = function() {
+                alert('Failed to load dashboard. Please check your credentials.');
+                localStorage.removeItem('dashboard_username');
+                localStorage.removeItem('dashboard_password');
+                window.location.reload();
+            };
+            document.body.appendChild(script);
+        }
+        loadDashboardScript();
     </script>
-    <script src="dashboard.js"></script>
 </body>
 </html> 

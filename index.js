@@ -890,6 +890,18 @@ app.get('/dashboard', (req, res) => {
     });
 });
 
+// Serve dashboard.js with authentication
+app.get('/dashboard.js', basicAuth, (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    fs.readFile(path.join(__dirname, 'dashboard', 'dashboard.js'), 'utf8', (err, data) => {
+        if (err) {
+            console.error('Error reading dashboard.js:', err);
+            return res.status(500).send('Error loading dashboard.js');
+        }
+        res.send(data);
+    });
+});
+
 // Health check endpoint (public)
 app.get('/health', async (_, res) => {
     try {
